@@ -1,4 +1,3 @@
-
 const connectToDb= require('../db');
 const { ObjectId } = require('mongodb');
 const bcrypt = require('bcrypt');

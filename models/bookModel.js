@@ -1,10 +1,17 @@
-const connectToDb = require('../db');
+const connectToDb= require('../db');
+const bcrypt = require('bcrypt');
 const { ObjectId } = require('mongodb');
+const { bookSchema } = require('../shemas/bookSchema'); // Assuming you have a bookSchema defined
+const { bookCondition } = require('../shemas/shareType'); // Assuming you have a shareType schema for book conditions
+
+
+
+
 
 exports.createBook = async (bookData) => {
   const db = await connectToDb();
 
-  // Ensure ISBN uniqueness if provided
+  // Enforce ISBN uniqueness if provided
   if (bookData.isbn && bookData.isbn.trim() !== '') {
     const existingBook = await db.collection('books').findOne({ isbn: bookData.isbn });
     if (existingBook) {
@@ -12,11 +19,15 @@ exports.createBook = async (bookData) => {
     }
   }
 
-  // Insert book
+  // Clean up any client-sent createdAt/updatedAt
+  const { createdAt, updatedAt, ...cleanedBookData } = bookData;
+
+  const timestamp = new Date();
+
   const result = await db.collection('books').insertOne({
-    ...bookData,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    ...cleanedBookData,
+    createdAt: timestamp,
+    updatedAt: timestamp,
   });
 
   if (!result.acknowledged) {
@@ -25,9 +36,12 @@ exports.createBook = async (bookData) => {
 
   return {
     _id: result.insertedId,
-    ...bookData
+    ...cleanedBookData,
+    createdAt: timestamp,
+    updatedAt: timestamp
   };
 };
+
 
 
 exports.updateBook = async (bookData) => {

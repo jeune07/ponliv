@@ -1,6 +1,5 @@
 const { z } = require('zod');
-const { bookCondition } = require('./shareType'); 
-
+const { bookCondition } = require('./shareType');
 
 exports.bookSchema = z.object({
   title: z.string().min(2, 'Title is too short'),
@@ -9,7 +8,7 @@ exports.bookSchema = z.object({
   isbn: z.union([z.string().length(13), z.literal('')]).optional(),
   category: z.string().min(2),
   publishedYear: z.number().min(1900).max(new Date().getFullYear()),
-  condition: bookCondition,
+  condition: z.array(bookCondition), // ✅ works now
   coverImage: z.string().url().optional(),
   price: z.number().min(0),
   sellerId: z.string().min(1),
@@ -17,7 +16,6 @@ exports.bookSchema = z.object({
   isIsbnProvided: z.boolean().default(false),
   schoolLevel: z.string().min(1).optional(),
   officialListReference: z.string().min(2).optional(),
-  createdAt: z.date().default(() => new Date()),
-  updatedAt: z.date().default(() => new Date())
+  createdAt: z.preprocess((val) => new Date(val), z.date()), // ✅ accepts ISO string
+  updatedAt: z.preprocess((val) => new Date(val), z.date())
 });
-
