@@ -25,9 +25,9 @@ exports.loginUser= async (req,res)=>{
 }
     const validUser = loginSchema.parse(req.body);
     const user = await userModel.loginUser(validUser);
-    if (!user) {
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
+   if (!user || user.error) {
+  return res.status(401).json({ success: false, error: user?.error || "Invalid credentials" });
+}
     return res.status(200).json({ success: true, user });
   }catch(err){
     console.error("Error in loginUser:", err);
@@ -39,22 +39,23 @@ exports.loginUser= async (req,res)=>{
 
 }
 
-exports.updateUser = async (req,res)=>{
+exports.updateUser = async (req, res) => {
   try {
-  const validUser = userSchema.parse (req.body);
-    const updatedUser = await userModel.updateUser(validUser);
-    if (!updatedUser) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    const validUser = userSchema.parse(req.body); 
+    const userId = req.params.id;
+    const updatedUser = await userModel.updateUser(userId, validUser);
     return res.status(200).json({ success: true, user: updatedUser });
 
-  }catch(error){
+  } catch (error) {
     console.error('Error in updateUser:', error);
-    if (error.name === 'ZodError'){
-      return res.status(400).json({ error: error.errors});
+
+    if (error.name === 'ZodError') {
+      return res.status(400).json({ error: error.errors });
     }
+
+    return res.status(500).json({ error: error.message });
   }
-}
+};
 
 exports.deleteUser = async (req, res) => {
   try {

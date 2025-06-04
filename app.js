@@ -4,7 +4,7 @@ require('dotenv').config();
 const userRoutes=require('./routes/userRoutes')
 console.log(typeof userRoutes)
 app.use(express.json());
-app.use('/api/users', userRoutes);
+app.use('/api', userRoutes);
 module.exports=app
 
 

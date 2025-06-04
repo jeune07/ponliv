@@ -3,12 +3,14 @@ const connectToDb= require('../db');
 const { ObjectId } = require('mongodb');
 const bcrypt = require('bcrypt');
 const { ca } = require('zod/v4/locales');
+const { userSchema,loginSchema } = require('../shemas/userSchema'); 
 
 
 exports.createUser= async (userData)=>{
+    const parsedUser = userSchema.parse(userData);
     const db=await connectToDb();
     //check if user already exists
-     userData.email = userData.email.toLowerCase(); 
+    userData.email = userData.email.toLowerCase(); 
     const existingUser = await db.collection('users').findOne({email: userData.email });
     if( existingUser) {
         throw new Error('User already exists');
@@ -18,7 +20,7 @@ exports.createUser= async (userData)=>{
     userData.password = await bcrypt.hash(userData.password, salt);
     //insert user into database
     userData.createdAt = new Date();   
-    userData.UserRoles = userData.UserRoles || ['user']; 
+    userData.UserRoles = userData.role || ['user']; 
     userData.schoolType = userData.schoolType || null;  
     userData.address = userData.address || '';
     userData.phoneNumber = userData.phoneNumber || '';
@@ -38,7 +40,7 @@ exports.createUser= async (userData)=>{
 
 exports.loginUser= async (userData)=>{
     try{
-         
+         const parsedUser = loginSchema.parse(userData);
     const db=await connectToDb();
     const user = await db.collection('users').findOne({ email: userData.email });
     if (!user) {
@@ -89,23 +91,30 @@ exports.getUserById = async(userId)=>{
 }
 
 exports.updateUser = async (userId, userData) => {
-    try {
-        const db = await connectToDb();
-        const result = await db.collection('users').updateOne(
-            { _id: userId },
-            { $set: userData }
-        );
-        if (result.modifiedCount === 0) {
-            throw new Error('User not found or no changes made');
-        }
-        return { message: 'User updated successfully' };
-    } catch (err) {
-        console.error("Error in updateUser:", err);
-        if (err.name === 'ZodError') {
-            return { error: err.errors };
-        }
-        return { error: err.message };
+  try {
+    if (!userData || typeof userData !== 'object') {
+      throw new Error('Invalid update payload');
     }
+
+    const db = await connectToDb();
+    const result = await db.collection('users').updateOne(
+      { _id: new ObjectId(userId) },
+      { $set: userData }
+    );
+
+    if (result.modifiedCount === 0) {
+      throw new Error('User not found or no changes made');
+    }
+
+    return { message: 'User updated successfully' };
+
+  } catch (err) {
+    console.error("Error in updateUser:", err);
+    if (err.name === 'ZodError') {
+      return { error: err.errors };
+    }
+    return { error: err.message };
+  }
 };
 
 exports.getUserByEmail = async (email) => {
