@@ -2,11 +2,11 @@
   "name": "ponliv",
   "version": "1.0.0",
   "description": "PonLiv is the first Creole-powered digital platform where students and schools can resell, exchange, or donate their books making learning more affordable, sustainable, and community-driven.",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon index.js"
-  },
+  "dev": "nodemon server.js",
+  "start": "node server.js"
+},
   "keywords": [
     "js",
     "javascript",
