@@ -37,13 +37,15 @@ exports.updateBook = async (req, res) => {
 exports.deleteBook = async (req, res) => {
   try {
     const bookId = req.params.id;
+    console.log('🔍 Deleting Book ID:', bookId);
+
     const deletedBook = await bookModel.softDeleteBook(bookId);
-    if (!deletedBook) {
-      return res.status(404).json({ error: "Book not found" });
-    }
+    console.log('✅ Delete result:', deletedBook);
+
     return res.status(200).json({ success: true, message: "Book deleted" });
+
   } catch (err) {
-    console.error('Error in deleteBook:', err);
+    console.error('❌ Error in deleteBook:', err);
     return res.status(500).json({ error: err.message });
   }
 };

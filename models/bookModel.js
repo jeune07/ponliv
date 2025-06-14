@@ -67,15 +67,24 @@ exports.updateBook = async (bookData) => {
 
   return result.value;
 };
-
-exports.deleteBook = async (bookId) => {
+exports.softDeleteBook = async (bookId) => {
   const db = await connectToDb();
 
+  if (!ObjectId.isValid(bookId)) {
+    throw new Error('Invalid book ID format');
+  }
+
   const objectId = new ObjectId(bookId);
+  console.log('📦 Converted ObjectId:', objectId);
+
+  const existing = await db.collection('books').findOne({ _id: objectId });
+  console.log('📖 Existing book from DB:', existing);
+
   const result = await db.collection('books').updateOne(
     { _id: objectId },
     { $set: { isDeleted: true, updatedAt: new Date() } }
   );
+  console.log('🛠️ Mongo update result:', result);
 
   if (result.modifiedCount === 0) {
     throw new Error('Book not found or already deleted');
@@ -83,7 +92,6 @@ exports.deleteBook = async (bookId) => {
 
   return { message: 'Book soft deleted successfully' };
 };
-
 exports.getBookByIsbn = async (isbn) => {
   const db = await connectToDb();
   const book = await db.collection('books').findOne({

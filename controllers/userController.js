@@ -1,4 +1,5 @@
 const { userSchema, loginSchema} = require('../shemas/userSchema'); 
+const jwt = require('jsonwebtoken');
 const userModel=require('../models/userModel');
 const { success } = require('zod/v4');
 const { error } = require('zod/v4/locales/ar.js');
@@ -17,27 +18,37 @@ exports.registerUser = async (req, res) => {
   }
 };
 
-exports.loginUser= async (req,res)=>{
-  try{
+exports.loginUser = async (req, res) => {
+  try {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
-  return res.status(400).json({ error: parsed.error.errors });
-}
-    const validUser = loginSchema.parse(req.body);
+      return res.status(400).json({ error: parsed.error.errors });
+    }
+
+    const validUser = parsed.data;
     const user = await userModel.loginUser(validUser);
-   if (!user || user.error) {
-  return res.status(401).json({ success: false, error: user?.error || "Invalid credentials" });
-}
-    return res.status(200).json({ success: true, user });
-  }catch(err){
+
+    if (!user || user.error) {
+      return res.status(401).json({ success: false, error: user?.error || "Invalid credentials" });
+    }
+
+    // ✅ Now it's safe to sign the token
+    const token = jwt.sign(
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    return res.status(200).json({ success: true, token, user });
+
+  } catch (err) {
     console.error("Error in loginUser:", err);
     if (err.name === 'ZodError') {
       return res.status(400).json({ error: err.errors });
     }
     return res.status(500).json({ error: err.message });
   }
-
-}
+};
 
 exports.updateUser = async (req, res) => {
   try {

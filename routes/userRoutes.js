@@ -1,4 +1,5 @@
 const express = require('express');
+const authenticateToken = require('../middleware/auth');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const bookController = require('../controllers/bookController');
@@ -175,23 +176,23 @@ router.post('/login', userController.loginUser);
  */
 router.put('/update/:id', userController.updateUser);
 
-/**
- * @swagger
- * /api/delete/{id}:
- *   delete:
- *     summary: Delete a user
- *     tags: [Users]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: User deleted successfully
- */
-router.delete('/delete/:id', userController.deleteUser);
+// /**
+//  * @swagger
+//  * /api/delete/{id}:
+//  *   delete:
+//  *     summary: Delete a user
+//  *     tags: [Users]
+//  *     parameters:
+//  *       - in: path
+//  *         name: id
+//  *         required: true
+//  *         schema:
+//  *           type: string
+//  *     responses:
+//  *       200:
+//  *         description: User deleted successfully
+//  */
+// //router.delete('/delete/:id', userController.deleteUser);
 
 /**
  * @swagger
@@ -251,7 +252,7 @@ router.put('/books/:id', bookController.updateBook);
  *       200:
  *         description: Book deleted successfully
  */
-router.delete('/delete/:id', bookController.deleteBook);
+router.delete('/books/:id', authenticateToken, bookController.deleteBook);
 
 /**
  * @swagger
