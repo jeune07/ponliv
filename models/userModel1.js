@@ -2,7 +2,7 @@ const connectToDb= require('../db');
 const { ObjectId } = require('mongodb');
 const bcrypt = require('bcrypt');
 const { ca } = require('zod/v4/locales');
-const { userSchema,loginSchema } = require('../shemas/userSchema'); 
+const { userSchema,loginSchema } = require('../schemas/userSchema1'); 
 
 
 exports.createUser= async (userData)=>{

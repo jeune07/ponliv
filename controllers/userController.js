@@ -1,88 +1,159 @@
-const { userSchema, loginSchema} = require('../shemas/userSchema'); 
 const jwt = require('jsonwebtoken');
-const userModel=require('../models/userModel');
-const { success } = require('zod/v4');
-const { error } = require('zod/v4/locales/ar.js');
+const bcrypt = require('bcrypt');
+const { ObjectId } = require('mongodb');
+const connectToDb = require('../db');
+const { roleSchemas } = require('../schemas/userSchemas');
 
 exports.registerUser = async (req, res) => {
   try {
-    const validUser = userSchema.parse(req.body);
-    const newUser = await userModel.createUser(validUser);
-    return res.status(201).json({ success: true, user: newUser });
-  } catch (err) {
-    console.error("Error in registerUser:", err);
-    if (err.name === 'ZodError') {
-      return res.status(400).json({ error: err.errors });
+    const db = await connectToDb();
+    const users = db.collection('users');
+
+    const role = req.body.role;
+    if (!role || !roleSchemas[role]) {
+      return res.status(400).json({ error: 'Invalid or missing role' });
     }
-    return res.status(500).json({ error: err.message });
+
+    const parsed = roleSchemas[role].parse(req.body);
+
+    const existing = await users.findOne({ email: parsed.email });
+    if (existing) return res.status(400).json({ error: 'Email already registered' });
+
+    const hashed = await bcrypt.hash(parsed.password, 10);
+    parsed.password = hashed;
+    parsed.status = 'active';
+    parsed.createdAt = new Date();
+
+    const result = await users.insertOne(parsed);
+
+    res.status(201).json({
+      message: 'User registered successfully',
+      user: {
+        id: result.insertedId,
+        name: parsed.name,
+        email: parsed.email,
+        role: parsed.role
+      }
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 };
 
 exports.loginUser = async (req, res) => {
   try {
-    const parsed = loginSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ error: parsed.error.errors });
-    }
+    const db = await connectToDb();
+    const users = db.collection('users');
 
-    const validUser = parsed.data;
-    const user = await userModel.loginUser(validUser);
+    const { email, password } = req.body;
+    const user = await users.findOne({ email });
+    if (!user) return res.status(401).json({ error: 'Invalid email or password' });
 
-    if (!user || user.error) {
-      return res.status(401).json({ success: false, error: user?.error || "Invalid credentials" });
-    }
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) return res.status(401).json({ error: 'Invalid email or password' });
 
-    // ✅ Now it's safe to sign the token
     const token = jwt.sign(
-      { userId: user._id, role: user.role },
+      {
+        id: user._id.toString(), // ✅ make sure it's a string
+        role: user.role
+      },
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: '7d' }
     );
 
-    return res.status(200).json({ success: true, token, user });
+    // 🔐 Safe to log before sending response
+    console.log('🔐 Logged in user ID →', user._id.toString());
+
+    return res.status(200).json({ token });
 
   } catch (err) {
-    console.error("Error in loginUser:", err);
-    if (err.name === 'ZodError') {
-      return res.status(400).json({ error: err.errors });
-    }
-    return res.status(500).json({ error: err.message });
+    console.error('Login error:', err.message);
+    return res.status(500).json({ error: 'Login failed' });
+  }
+};
+
+exports.getMe = async (req, res) => {
+  try {
+    const db = await connectToDb();
+    const user = await db.collection('users').findOne(
+      { _id: new ObjectId(req.user.id) },
+      { projection: { password: 0 } }
+    );
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    res.status(200).json(user);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch user' });
   }
 };
 
 exports.updateUser = async (req, res) => {
   try {
-    const validUser = userSchema.parse(req.body); 
-    const userId = req.params.id;
-    const updatedUser = await userModel.updateUser(userId, validUser);
-    return res.status(200).json({ success: true, user: updatedUser });
+    const db = await connectToDb();
+    const users = db.collection('users');
+    const id = new ObjectId(req.params.id);
 
-  } catch (error) {
-    console.error('Error in updateUser:', error);
+    const user = await users.findOne({ _id: id });
+    if (!user) return res.status(404).json({ error: 'User not found' });
 
-    if (error.name === 'ZodError') {
-      return res.status(400).json({ error: error.errors });
+    if (user._id.toString() !== req.user.id && !req.user.role.includes('admin')) {
+      return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    return res.status(500).json({ error: error.message });
+    const update = { ...req.body };
+    if (update.password) {
+      update.password = await bcrypt.hash(update.password, 10);
+    }
+
+    const result = await users.findOneAndUpdate(
+      { _id: id },
+      { $set: update },
+      { returnDocument: 'after' }
+    );
+   
+    res.status(200).json(result._id);
+    
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 };
 
 exports.deleteUser = async (req, res) => {
   try {
-    const userId = req.params.id;
-    const deletedUser = await userModel.deleteUser(userId);
+    const db = await connectToDb();
+    const users = db.collection('users');
+    const id = new ObjectId(req.params.id);
 
-    if (!deletedUser || deletedUser.error) {
-      return res.status(404).json({ error: deletedUser?.error || "User not found" });
+    const user = await users.findOne({ _id: id });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    if (user._id.toString() !== req.user.id && !req.user.role.includes('admin')) {
+      return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    return res.status(200).json({ success: true, message: deletedUser.message });
-  } catch (error) {
-    console.error('Error in deleteUser:', error);
-    if (error.name === 'ZodError') {
-      return res.status(400).json({ error: error.errors });
-    }
-    return res.status(500).json({ error: error.message || 'Internal server error' });
+    await users.deleteOne({ _id: id });
+
+    res.status(200).json({ message: 'User deleted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.logoutUser = async (req, res) => {
+  try {
+    const db = await connectToDb();
+    const blacklisted = db.collection('blacklistedTokens');
+
+    const token = req.token;
+    const decoded = jwt.decode(token);
+
+    await blacklisted.insertOne({
+      token,
+      expiresAt: new Date(decoded.exp * 1000)
+    });
+
+    res.status(200).json({ message: 'User logged out successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Logout failed' });
   }
 };
