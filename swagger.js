@@ -15,7 +15,7 @@ const options = {
       version: '1.0.0',
       description: 'Documentation for Ponliv User API',
     },
-    servers: [{ url: 'http://localhost:5001/' }],
+    servers: [{ url: 'https://ponliv.onrender.com' }],
     components: {
       securitySchemes: {
         bearerAuth: {
